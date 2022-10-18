@@ -339,12 +339,23 @@ contract Exchange is Ownable {
                     else if (amountTokens <= sellTokenAmt) {
                         saleTokenAmt = amountTokens;
                     }
+
+                    //Verify current balance
+                    require(
+                        tokens[usdc][owner] >= amountTokens.mul(sellPrice),
+                        "Buyer currently does not have enough USDC Balance"
+                    );
+                    require(
+                        tokens[_token][seller] >= amountTokens,
+                        "Seller currently does not have enough Token Balance"
+                    );
+
                     //update orders
                     fillBuyOrder(_id, _token, saleTokenAmt, sellPrice);
                     fillSellOrder(sellId, _token, saleTokenAmt, sellPrice);
 
                     //buyer update
-                    require(owner == msg.sender);
+                    //require(owner==msg.sender);
                     tokens[_token][owner] = tokens[_token][owner].add(
                         saleTokenAmt
                     );
@@ -389,6 +400,17 @@ contract Exchange is Ownable {
                     else if (amountTokens <= buyTokenAmt) {
                         saleTokenAmt = amountTokens;
                     }
+
+                    //Verify current balance
+                    require(
+                        tokens[_token][owner] >= amountTokens,
+                        "Seller currently does not have enough Token Balance"
+                    );
+                    require(
+                        tokens[usdc][buyer] >= amountTokens.mul(buyPrice),
+                        "Buyer currently does not have enough USDC Balance"
+                    );
+
                     //update orders
                     fillSellOrder(_id, _token, saleTokenAmt, buyPrice);
                     fillBuyOrder(buyId, _token, saleTokenAmt, buyPrice);
