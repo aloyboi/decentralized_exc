@@ -3,6 +3,7 @@
 pragma solidity ^0.8.0;
 
 import "./ERC20.sol";
+import "./testUSDC.sol";
 
 /// @notice Library SafeMath used to prevent overflows and underflows
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
@@ -12,28 +13,31 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract Exchange is Ownable {
     using SafeMath for uint256; //for prevention of integer overflow
 
-    address Owner;
+    address public Owner;
     uint256 decimals = 10**18;
+    IERC20 token;
     //Deposit in contract
     mapping(address => mapping(address => uint256)) public tokens; //tokenAdress -> msg.sender -> tokenAmt
 
     //Token Address List available in DEX
     address[] public tokenList;
-    address ethToken = address(0); //to be changed
-    address usdc = 0x07865c6E87B9F70255377e024ace6630C1Eaa37F;
+    address ethToken = address(0);
+    address usdc;
 
     //orderBook mappping: tokenAddress -> Side -> Order Array
     mapping(address => mapping(uint256 => _Order[])) public orderBook;
 
     _filledOrder[] filledOrders; //array of filled orders
 
-    uint256 private orderId = 0;
+    uint256 public orderId = 0;
 
     // AggregatorV3Interface private ethUsdPriceFeed;
     // AggregatorV3Interface private btcUsdPriceFeed;
 
     //For prevention of reentrancy
     bool internal locked;
+
+    //Custom Errors
 
     //Structs representing an order has unique id, user and amounts to give and get between two tokens to exchange
     struct _Order {
@@ -112,17 +116,19 @@ contract Exchange is Ownable {
     }
 
     function withdrawETH(uint256 _amount) public {
-        _amount = _amount * decimals;
-        require(tokens[ethToken][msg.sender] >= _amount);
+        //_amount = _amount * decimals;
+        require(
+            tokens[ethToken][msg.sender] >= _amount,
+            "Insufficient balance ETH to withdraw"
+        );
         require(!locked, "Reentrant call detected!");
         locked = true;
         tokens[ethToken][msg.sender] = tokens[ethToken][msg.sender].sub(
             _amount
         );
         locked = false;
-        payable(msg.sender).transfer(_amount);
-        // (bool success, ) = msg.sender.call{value: _amount}("");
-        // require(success, "failed to send amount");
+        (bool success, ) = msg.sender.call{value: _amount}("");
+        require(success, "failed to send amount");
 
         emit Withdraw(
             ethToken,
@@ -135,24 +141,24 @@ contract Exchange is Ownable {
     //from and transferFrom is from ERC20 contract
     //_token should be an ERC20 token
     function depositToken(address _token, uint256 _amount) public {
-        _amount = _amount * 10**6;
         require(_token != ethToken);
         //need to add a check to prove that it is an ERC20 token
-        ERC20 token = ERC20(_token);
-        token.approve(address(this), _amount);
-        require(token.transfer(address(this), _amount));
+        token = IERC20(_token);
+        require(
+            token.transferFrom(msg.sender, address(this), _amount),
+            "Error here"
+        );
         tokens[_token][msg.sender] = tokens[_token][msg.sender].add(_amount);
         emit Deposit(_token, msg.sender, _amount, tokens[_token][msg.sender]);
     }
 
     function withdrawToken(address _token, uint256 _amount) public {
-        _amount = _amount * decimals;
         require(_token != ethToken);
         require(tokens[_token][msg.sender] >= _amount);
         require(!locked, "Reentrant call detected!");
         locked = true;
         tokens[_token][msg.sender] = tokens[_token][msg.sender].sub(_amount);
-        ERC20 token = ERC20(_token);
+        token = IERC20(_token);
         require(token.transfer(msg.sender, _amount));
         locked = false;
         emit Withdraw(_token, msg.sender, _amount, tokens[_token][msg.sender]);
@@ -171,12 +177,16 @@ contract Exchange is Ownable {
     //For seller, when making sell order, they deposit token of choice and receive usdc
     function createLimitBuyOrder(
         address _token,
+        address _testUSDC,
         uint256 _amount,
         uint256 _price //in usdc/token
-    ) public {
-        _amount = _amount * decimals;
+    ) public returns (_Order memory) {
         //Amount user has deposited in the DEX must be >= value he wants to buy
-        require(tokens[usdc][msg.sender] >= _amount.mul(_price));
+        usdc = _testUSDC;
+        require(
+            tokens[usdc][msg.sender] >= _amount.mul(_price),
+            "Insufficient USDC in exchange"
+        );
 
         _Order[] storage _order = orderBook[_token][uint256(Side.BUY)];
         _order.push(
@@ -186,16 +196,21 @@ contract Exchange is Ownable {
         emit Order(orderId, msg.sender, _token, _amount, _price, Side.BUY);
 
         orderId++;
+
+        return _order[_order.length - 1];
     }
 
     function createLimitSellOrder(
         address _token,
         uint256 _amount,
         uint256 _price //in usdc/token
-    ) public {
+    ) public returns (_Order memory) {
         _amount = _amount * decimals;
         //Amount of tokens user deposit in DEX must be >= the amount of tokens they want to sell
-        require(tokens[_token][msg.sender] >= _amount);
+        require(
+            tokens[_token][msg.sender] >= _amount,
+            "Insufficient tokens in exchange"
+        );
 
         _Order[] storage _order = orderBook[_token][uint256(Side.SELL)];
         _order.push(
@@ -205,6 +220,8 @@ contract Exchange is Ownable {
         emit Order(orderId, msg.sender, _token, _amount, _price, Side.SELL);
 
         orderId++;
+
+        return _order[_order.length - 1];
     }
 
     function cancelOrder(
@@ -451,5 +468,20 @@ contract Exchange is Ownable {
             }
         }
         return order;
+    }
+
+    function orderExists(
+        uint256 _id,
+        Side side,
+        address _token
+    ) public view returns (bool) {
+        _Order[] memory orders = orderBook[_token][uint256(side)];
+
+        for (uint256 i = 0; i < orders.length; i++) {
+            if (orders[i].id == _id) {
+                return true;
+            }
+        }
+        return false;
     }
 }

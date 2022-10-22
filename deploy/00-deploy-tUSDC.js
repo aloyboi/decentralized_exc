@@ -17,14 +17,13 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const { deployer } = await getNamedAccounts(); //get from namedAccounts in config file
     const chainId = network.config.chainId;
 
-    //const args = [ethUsdPriceFeedAddress];
-
-    const dex = await deploy("Exchange", {
+    const tUSDC = await deploy("testUSDC", {
         from: deployer,
-        args: [],
+        args: ["10000000000000000000000"],
         log: true,
         waitConfirmations: network.config.blockConfirmations || 1,
     });
+    console.log(`Contract Address: ${tUSDC.address}`);
 
     // if (
     //     !developmentChain.includes(network.name) &&
@@ -35,4 +34,4 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     log("------------------------------------------------");
 };
 
-module.exports.tags = ["all", "dex"];
+module.exports.tags = ["all", "testUSDC"];

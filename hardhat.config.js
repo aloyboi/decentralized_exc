@@ -8,6 +8,7 @@ require("hardhat-deploy");
 const RPC_URL_GOERLI = process.env.RPC_URL_GOERLI;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY;
+const ALCHEMY_MAINNET_FORK = process.env.ALCHEMY_MAINNET_FORK;
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
@@ -27,6 +28,10 @@ module.exports = {
             url: "http://127.0.0.1:8545/",
             //accounts not needed as already provided by hardhat
             chainId: 31337,
+            forking: {
+                enabled: true,
+                url: `https://eth-mainnet.alchemyapi.io/v2/${ALCHEMY_MAINNET_FORK}`,
+            },
         },
     },
     solidity: {
