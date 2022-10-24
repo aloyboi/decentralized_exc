@@ -1,7 +1,7 @@
 const { expect, assert } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("Exchange", async function () {
+describe("Wallet", async function () {
     let totalSupply = "10000000000000000000000";
     let Token;
     let testUSDC;
@@ -22,12 +22,16 @@ describe("Exchange", async function () {
 
         //Deploy Exchange address
         exchange = await ethers.getContractFactory("Exchange");
-        Exchange = await exchange.deploy();
+        Exchange = await exchange.deploy(testUSDC.address);
+
+        //Deploy Wallet address
+        wallet = await ethers.getContractFactory("Wallet");
+        Wallet = await wallet.deploy(Exchange.address);
     });
 
     describe("Constructor", async function () {
-        it("Correct Exchange Owner", async function () {
-            const ownerAdd = await Exchange.Owner();
+        it("Correct Address Owner", async function () {
+            const ownerAdd = await Wallet.Owner();
             assert.equal(ownerAdd, owner.address);
         });
     });
@@ -44,28 +48,28 @@ describe("Exchange", async function () {
 
             it("Should deposit ETH into DEX when enough balance", async function () {
                 //Transfer 0.1 ETH into Exchange Contract
-                const tx = await Exchange.depositETH({
+                const tx = await Wallet.depositETH({
                     value: eth,
                 });
-                await tx.wait(1);
-                const amountBalance = await Exchange.tokens(
-                    ethAdd,
-                    owner.address
-                );
-                await expect(amountBalance).to.be.equal(eth);
+                // await tx.wait(1);
+                // const amountBalance = await Exchange.s_tokens(
+                //     ethAdd,
+                //     owner.address
+                // );
+                // await expect(amountBalance).to.be.equal(eth);
             });
 
             it("Should withdraw ETH from DEX if enough balance", async function () {
                 //Transfer 0.1 ETH into Exchange Contract
-                const tx = await Exchange.depositETH({
+                const tx = await Wallet.depositETH({
                     value: eth,
                 });
                 await tx.wait(1);
 
-                const txResponse = await Exchange.withdrawETH(eth);
+                const txResponse = await Wallet.withdrawETH(eth);
                 await txResponse.wait(1);
 
-                const amountBalance = await Exchange.tokens(
+                const amountBalance = await Exchange.s_tokens(
                     ethAdd,
                     owner.address
                 );
@@ -73,35 +77,35 @@ describe("Exchange", async function () {
             });
 
             it("Should fail if sender doesn’t have enough ETH in DEX", async function () {
-                await expect(Exchange.withdrawETH(eth)).to.be.reverted;
+                await expect(Wallet.withdrawETH(eth)).to.be.reverted;
             });
         });
 
-        describe("Depositing & Withdrawing testUSDC tokens", async function () {
+        describe("Depositing & Withdrawing testUSDC s_tokens", async function () {
             let amount;
             beforeEach(async function () {
                 amount = "10000000000000000000";
             });
 
-            it("Should deposit correct amount of testUSDC tokens into Exchange", async function () {
+            it("Should deposit correct amount of testUSDC s_tokens into Exchange", async function () {
                 const sendToken = await testUSDC.transfer(
                     addr1.address,
                     amount
                 );
 
-                //testUSDC contract approve Exchange to spend token
+                //testUSDC contract approve Wallet to spend token
                 const approve = await testUSDC
                     .connect(addr1)
-                    .approve(Exchange.address, amount);
+                    .approve(Wallet.address, amount);
                 await approve.wait(1);
 
-                const tx = await Exchange.connect(addr1).depositToken(
+                const tx = await Wallet.connect(addr1).depositToken(
                     testUSDC.address,
                     amount
                 );
                 await tx.wait(1);
 
-                const tokenBalance = await Exchange.tokens(
+                const tokenBalance = await Exchange.s_tokens(
                     testUSDC.address,
                     addr1.address
                 );
@@ -109,22 +113,19 @@ describe("Exchange", async function () {
                 expect(tokenBalance).to.be.equal(amount);
             });
 
-            it("Should fail if sender does not have enough testUSDC tokens", async function () {
+            it("Should fail if sender does not have enough testUSDC s_tokens", async function () {
                 //Should fail even with approve
                 const approve = await testUSDC
                     .connect(addr1)
-                    .approve(Exchange.address, amount);
+                    .approve(Wallet.address, amount);
                 await approve.wait(1);
 
                 await expect(
-                    Exchange.connect(addr1).depositToken(
-                        testUSDC.address,
-                        amount
-                    )
+                    Wallet.connect(addr1).depositToken(testUSDC.address, amount)
                 ).to.be.revertedWith("ERC20: transfer amount exceeds balance");
             });
 
-            it("Should withdraw tokens if sender has enough balance in DEX", async function () {
+            it("Should withdraw s_tokens if sender has enough balance in DEX", async function () {
                 const sendToken = await testUSDC.transfer(
                     addr1.address,
                     amount
@@ -133,33 +134,33 @@ describe("Exchange", async function () {
                 //testUSDC contract approve Exchange to spend token
                 const approve = await testUSDC
                     .connect(addr1)
-                    .approve(Exchange.address, amount);
+                    .approve(Wallet.address, amount);
                 await approve.wait(1);
 
-                const tx = await Exchange.connect(addr1).depositToken(
+                const tx = await Wallet.connect(addr1).depositToken(
                     testUSDC.address,
                     amount
                 );
                 await tx.wait(1);
 
                 expect(
-                    await Exchange.tokens(testUSDC.address, addr1.address)
+                    await Exchange.s_tokens(testUSDC.address, addr1.address)
                 ).to.be.equal(amount);
 
-                const txReceipt = await Exchange.connect(addr1).withdrawToken(
+                const txReceipt = await Wallet.connect(addr1).withdrawToken(
                     testUSDC.address,
                     amount
                 );
                 await txReceipt.wait(1);
 
                 expect(
-                    await Exchange.tokens(testUSDC.address, addr1.address)
+                    await Exchange.s_tokens(testUSDC.address, addr1.address)
                 ).to.be.equal("0");
             });
 
-            it("Should not allow withdrawal of tokens if sender does not have enough balance in DEX", async function () {
+            it("Should not allow withdrawal of s_tokens if sender does not have enough balance in DEX", async function () {
                 await expect(
-                    Exchange.connect(addr2).withdrawToken(
+                    Wallet.connect(addr2).withdrawToken(
                         testUSDC.address,
                         amount
                     )

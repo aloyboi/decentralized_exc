@@ -4,6 +4,7 @@ require("@nomiclabs/hardhat-etherscan");
 require("hardhat-gas-reporter");
 require("solidity-coverage");
 require("hardhat-deploy");
+require("hardhat-contract-sizer");
 
 const RPC_URL_GOERLI = process.env.RPC_URL_GOERLI;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
@@ -50,5 +51,12 @@ module.exports = {
         users: {
             default: 1,
         },
+    },
+    contractSizer: {
+        alphaSort: true,
+        disambiguatePaths: false,
+        runOnCompile: true,
+        strict: true,
+        only: [],
     },
 };

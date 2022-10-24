@@ -41,56 +41,50 @@ describe("Exchange", async function () {
         Wallet = await wallet.deploy(Exchange.address);
     });
 
-    describe("Creating new Limit Buy Orders", async function () {
-        it("Should not allow new Limit Buy Orders if insufficient testUSDC deposited to buy", async function () {
+    describe("Creating new Limit Sell Orders", async function () {
+        it("Should not allow new Limit Sell Orders if insufficient ETH deposited to sell", async function () {
             await expect(
-                Exchange.createLimitBuyOrder(ethAdd, amount, price)
-            ).to.be.rejectedWith("Insufficient USDC");
+                Exchange.createLimitSellOrder(ethAdd, amount, price)
+            ).to.be.rejectedWith("Insufficient tokens");
         });
 
-        it("Should create a new Limit Buy Order if sufficient testUSDC deposited to fill buy order", async function () {
-            const approve = await testUSDC.approve(Wallet.address, totalAmount);
+        it("Should create a new Limit Sell Order if sufficient ETH deposited to fill sell order", async function () {
+            const depositETH = await Wallet.depositETH({ value: amount });
 
-            const depositToken = await Wallet.depositToken(
-                testUSDC.address,
-                totalAmount
+            expect(await Exchange.s_tokens(ethAdd, owner.address)).to.be.equal(
+                amount
             );
 
-            expect(
-                await Exchange.s_tokens(testUSDC.address, owner.address)
-            ).to.be.equal(totalAmount);
-
-            //Place buy order for ETH
+            //Place sell order for ETH
             const orderId = await Exchange.s_orderId();
-            const buyOrder = await Exchange.createLimitBuyOrder(
+            const sellOrder = await Exchange.createLimitSellOrder(
                 ethAdd,
-                amount,
+                (5 * 10 ** 18).toString(),
                 price
             );
             const newOrderId = await Exchange.s_orderId();
 
             expect(
-                await Exchange.lockedFunds(owner.address, testUSDC.address)
-            ).to.be.equal((amount * price).toString());
+                await Exchange.lockedFunds(owner.address, ethAdd)
+            ).to.be.equal((5 * 10 ** 18).toString());
 
             await expect(newOrderId).to.be.equal(orderId + 1);
 
             await expect(
-                Exchange.createLimitBuyOrder(ethAdd, amount, price)
-            ).to.be.revertedWith("Insufficient USDC");
+                Exchange.createLimitSellOrder(
+                    ethAdd,
+                    (6 * 10 ** 18).toString(),
+                    price
+                )
+            ).to.be.revertedWith("Insufficient tokens");
         });
 
-        it("Should not allow new Limit Buy Orders if token not available on DEX", async function () {
-            const approve = await testUSDC.approve(Wallet.address, totalAmount);
-
-            const depositToken = await Wallet.depositToken(
-                testUSDC.address,
-                totalAmount
-            );
+        it("Should not allow new Limit Sell Orders if token not available on DEX", async function () {
+            const depositEth = await Wallet.depositETH({ value: amount });
 
             await expect(
                 //Solana given
-                Exchange.createLimitBuyOrder(
+                Exchange.createLimitSellOrder(
                     "0x41848d32f281383f214c69b7b248dc7c2e0a7374",
                     amount,
                     price
