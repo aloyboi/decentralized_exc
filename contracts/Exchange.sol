@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.0;
+pragma experimental ABIEncoderV2;
 
 import "./ERC20.sol";
 import "./testUSDC.sol";
@@ -11,13 +12,13 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract Exchange is Ownable{
+contract Exchange is Ownable {
     using SafeMath for uint256; //for prevention of integer overflow
 
     address public immutable Owner;
     address usdc;
     address public ethToken = address(0);
-
+    uint256 decimals = 10**18;
 
     //Token Address List available in DEX
     address[] public tokenList;
@@ -34,8 +35,7 @@ contract Exchange is Ownable{
     _filledOrder[] s_filledOrders; //array of filled orders
 
     uint256 public s_orderId = 0;
-    bool private s_isManual=true;
-
+    bool private s_isManual = true;
 
     //Structs representing an order has unique id, user and amounts to give and get between two s_tokens to exchange
     struct _Order {
@@ -93,7 +93,6 @@ contract Exchange is Ownable{
         Owner = msg.sender;
     }
 
-
     //For Buyer, when making buy order they deposit usdc and receive token of choice
     //For seller, when making sell order, they deposit token of choice and receive usdc
     function createLimitBuyOrder(
@@ -104,15 +103,20 @@ contract Exchange is Ownable{
         //Token must be approved in DEX
         require(isVerifiedToken(_token), "Token unavailable in DEX");
 
+        //Our Exchange does not allow buying of USDC
+        require(_token != usdc, "Unable to purchase USDC");
+
+        uint256 totalValue = (_amount.mul(_price)).div(decimals);
+
         //Amount user has deposited in the DEX must be >= value he wants to buy
         require(
-            balanceOf(usdc,msg.sender) - getlockedFunds(msg.sender, usdc) >= _amount.mul(_price),
+            balanceOf(usdc, msg.sender) - getlockedFunds(msg.sender, usdc) >=
+                totalValue,
             "Insufficient USDC"
         );
 
-
         //Lock the funds (USDC) in the wallet by removing balance in DEX
-        updateLockedFunds(msg.sender, usdc, _amount.mul(_price), true);
+        updateLockedFunds(msg.sender, usdc, totalValue, true);
 
         s_orderBook[_token][uint256(Side.BUY)].push(
             _Order(s_orderId, msg.sender, _token, _amount, _price, Side.BUY)
@@ -121,7 +125,6 @@ contract Exchange is Ownable{
         emit Order(s_orderId, msg.sender, _token, _amount, _price, Side.BUY);
 
         s_orderId = s_orderId.add(1);
-
     }
 
     function createLimitSellOrder(
@@ -132,13 +135,16 @@ contract Exchange is Ownable{
         //Token must be approved in DEX
         require(isVerifiedToken(_token), "Token unavailable in DEX");
 
+        //Our Exchange does not allow buying of USDC
+        require(_token != usdc, "Unable to sell USDC");
 
         //Amount of tokens user deposit in DEX must be >= the amount of tokens they want to sell
         require(
-            balanceOf(_token,msg.sender) - getlockedFunds(msg.sender, _token) >= _amount,
+            balanceOf(_token, msg.sender) -
+                getlockedFunds(msg.sender, _token) >=
+                _amount,
             "Insufficient tokens"
         );
-        
 
         //Lock the funds (tokens) in the wallet
         updateLockedFunds(msg.sender, _token, _amount, true);
@@ -150,7 +156,6 @@ contract Exchange is Ownable{
         emit Order(s_orderId, msg.sender, _token, _amount, _price, Side.SELL);
 
         s_orderId = s_orderId.add(1);
-
     }
 
     function cancelOrder(
@@ -160,7 +165,7 @@ contract Exchange is Ownable{
     ) public {
         require(_id >= 0 && _id <= s_orderId, "Invalid Order ID");
         require(isVerifiedToken(_token), "Token unavailable in DEX");
-        
+
         _Order[] storage _order = s_orderBook[_token][uint256(side)];
         uint256 size = _order.length;
         _Order memory order;
@@ -174,22 +179,23 @@ contract Exchange is Ownable{
             }
         }
 
+        //Manual cancellation of orders
         if (s_isManual) {
-            require(msg.sender== order.user, "Not Order Owner");
+            require(msg.sender == order.user, "Not Order Owner");
 
             //Unlock funds
             if (side == Side.BUY) {
-                updateLockedFunds(msg.sender, usdc, order.price.mul(order.amount), false);
-            }
-                
-            else if (side == Side.SELL) {
+                updateLockedFunds(
+                    msg.sender,
+                    usdc,
+                    (order.price.mul(order.amount)).div(decimals),
+                    false
+                );
+            } else if (side == Side.SELL) {
                 updateLockedFunds(msg.sender, _token, order.amount, false);
             }
         }
 
-
-
-        
         for (uint256 j = index; j < size - 1; j++) {
             _order[j] = _order[j + 1];
         }
@@ -201,63 +207,41 @@ contract Exchange is Ownable{
         emit Cancel(order.id, msg.sender, _token, order.amount, order.price);
     }
 
-    function fillBuyOrder(
+    function fillOrder(
+        Side side,
         uint256 _id,
         address _token,
         uint256 _amount,
         uint256 _price
     ) public {
         require(_id >= 0 && _id <= s_orderId);
-        _Order[] memory _order = s_orderBook[_token][0];
+        _Order[] memory _order = s_orderBook[_token][uint256(side)];
         _Order memory order;
 
         order = getOrderFromArray(_order, _id);
 
         require(order.amount >= _amount);
 
-
         order.amount = order.amount.sub(_amount);
 
-        updateLockedFunds(order.user, usdc, order.price.mul(_amount), false);
+        if (side == Side.BUY) {
+            updateLockedFunds(
+                order.user,
+                usdc,
+                (order.price.mul(_amount)).div(decimals),
+                false
+            );
+        } else if (side == Side.SELL) {
+            updateLockedFunds(order.user, _token, _amount, false);
+        }
 
-        
         emit Fill(_id, order.user, _token, _amount, _price);
 
         if (order.amount == 0) {
-            s_filledOrders.push(_filledOrder(Side.BUY, order));
-            s_isManual=false;
-            cancelOrder(Side.BUY, order.id, order.token); //remove filled orders
-            s_isManual=true;
-        }
-
-    }
-
-    function fillSellOrder(
-        uint256 _id,
-        address _token,
-        uint256 _amount,
-        uint256 _price
-    ) public {
-        require(_id >= 0 && _id <= s_orderId);
-        _Order[] memory _order = s_orderBook[_token][1];
-        _Order memory order;
-
-        order = getOrderFromArray(_order, _id);
-
-        require(order.amount >= _amount);
-
-        order.amount = order.amount.sub(_amount);
-
-        updateLockedFunds(order.user, _token, _amount, false);
-        
-
-        emit Fill(order.id, order.user , _token, _amount, _price);
-
-        if (order.amount == 0) {
-            s_filledOrders.push(_filledOrder(Side.SELL, order));
-            s_isManual=false;
-            cancelOrder(Side.SELL, order.id, order.token); //remove filled orders
-            s_isManual=true;
+            s_filledOrders.push(_filledOrder(side, order));
+            s_isManual = false;
+            cancelOrder(side, order.id, order.token); //remove filled orders
+            s_isManual = true;
         }
     }
 
@@ -277,7 +261,7 @@ contract Exchange is Ownable{
         if (side == Side.BUY) {
             //Retrieve buy order to be filled
             _Order[] memory _order = s_orderBook[_token][0];
-            _Order memory buyOrderToFill= getOrderFromArray(_order, _id);
+            _Order memory buyOrderToFill = getOrderFromArray(_order, _id);
 
             //Retrieve sell order to match
             _Order[] memory _sellOrder = s_orderBook[_token][1];
@@ -296,26 +280,53 @@ contract Exchange is Ownable{
 
                     //Verify current balance
                     require(
-                        balanceOf(usdc, buyOrderToFill.user) >= saleTokenAmt.mul(sellOrder.price),
+                        balanceOf(usdc, buyOrderToFill.user) >=
+                            (saleTokenAmt.mul(sellOrder.price)).div(decimals),
                         "Insufficient buyer USDC Balance"
                     );
                     require(
-                        balanceOf(_token,sellOrder.user) >= saleTokenAmt,
+                        balanceOf(_token, sellOrder.user) >= saleTokenAmt,
                         "Insufficient seller Token Balance"
                     );
 
                     //update orders
-                    fillBuyOrder(_id, _token, saleTokenAmt, sellOrder.price);
-                    fillSellOrder(sellOrder.id, _token, saleTokenAmt, sellOrder.price);
+                    fillOrder(
+                        Side.BUY,
+                        _id,
+                        _token,
+                        saleTokenAmt,
+                        sellOrder.price
+                    );
+                    fillOrder(
+                        Side.SELL,
+                        sellOrder.id,
+                        _token,
+                        saleTokenAmt,
+                        sellOrder.price
+                    );
 
                     //buyer update
-                    updateBalance(_token, buyOrderToFill.user, saleTokenAmt, true);
-                    updateBalance(usdc, buyOrderToFill.user, sellOrder.price.mul(saleTokenAmt), false);
-                    
+                    updateBalance(
+                        _token,
+                        buyOrderToFill.user,
+                        saleTokenAmt,
+                        true
+                    );
+                    updateBalance(
+                        usdc,
+                        buyOrderToFill.user,
+                        (sellOrder.price.mul(saleTokenAmt)).div(decimals),
+                        false
+                    );
 
                     //seller update
                     updateBalance(_token, sellOrder.user, saleTokenAmt, false);
-                    updateBalance(usdc, sellOrder.user, sellOrder.price.mul(saleTokenAmt), true);
+                    updateBalance(
+                        usdc,
+                        sellOrder.user,
+                        (sellOrder.price.mul(saleTokenAmt)).div(decimals),
+                        true
+                    );
                 }
 
                 if (buyOrderToFill.amount == 0) break;
@@ -343,30 +354,63 @@ contract Exchange is Ownable{
 
                     //Verify current balance
                     require(
-                        balanceOf(_token,sellOrderToFill.user) >= saleTokenAmt,
+                        balanceOf(_token, sellOrderToFill.user) >= saleTokenAmt,
                         "Insufficient seller Token Balance"
                     );
                     require(
-                        balanceOf(usdc,order.user) >= saleTokenAmt.mul(order.price),
+                        balanceOf(usdc, order.user) >=
+                            (saleTokenAmt.mul(order.price)).div(decimals),
                         "Insufficient buyer USDC Balance"
                     );
 
                     //update orders
-                    fillSellOrder(_id, _token, saleTokenAmt, order.price);
-                    fillBuyOrder(order.id, _token, saleTokenAmt, order.price);
+                    fillOrder(
+                        Side.SELL,
+                        _id,
+                        _token,
+                        saleTokenAmt,
+                        order.price
+                    );
+                    fillOrder(
+                        Side.BUY,
+                        order.id,
+                        _token,
+                        saleTokenAmt,
+                        order.price
+                    );
 
                     //seller update
-                    updateBalance(_token, sellOrderToFill.user, saleTokenAmt, false);
-                    updateBalance(usdc, sellOrderToFill.user, order.price.mul(saleTokenAmt), true);
+                    updateBalance(
+                        _token,
+                        sellOrderToFill.user,
+                        saleTokenAmt,
+                        false
+                    );
+                    updateBalance(
+                        usdc,
+                        sellOrderToFill.user,
+                        (order.price.mul(saleTokenAmt)).div(decimals),
+                        true
+                    );
 
                     //buyer update
                     updateBalance(_token, order.user, saleTokenAmt, true);
-                    updateBalance(usdc, order.user, order.price.mul(saleTokenAmt), false);
+                    updateBalance(
+                        usdc,
+                        order.user,
+                        (order.price.mul(saleTokenAmt)).div(decimals),
+                        false
+                    );
                 }
 
                 if (sellOrderToFill.amount == 0) break;
             }
         }
+    }
+
+    function getOrderBook(address _token) public view returns (_Order memory) {
+        _Order[] memory orderBuy = s_orderBook[_token][0];
+        return orderBuy[0];
     }
 
     function getOrderFromArray(_Order[] memory _order, uint256 _id)
@@ -399,20 +443,32 @@ contract Exchange is Ownable{
         return false;
     }
 
-    function getlockedFunds(address _user, address _token) public view returns (uint256) {
+    function getlockedFunds(address _user, address _token)
+        public
+        view
+        returns (uint256)
+    {
         return lockedFunds[_user][_token];
     }
 
-    function updateLockedFunds(address _user, address _token, uint256 _amount, bool isAdd) public{
+    function updateLockedFunds(
+        address _user,
+        address _token,
+        uint256 _amount,
+        bool isAdd
+    ) public {
         if (isAdd) {
-            lockedFunds[_user][_token] = lockedFunds[_user][_token].add(_amount);
-        } 
-        else if (!isAdd) {
-            lockedFunds[_user][_token] = lockedFunds[_user][_token].sub(_amount);
+            lockedFunds[_user][_token] = lockedFunds[_user][_token].add(
+                _amount
+            );
+        } else if (!isAdd) {
+            lockedFunds[_user][_token] = lockedFunds[_user][_token].sub(
+                _amount
+            );
         }
     }
 
-    //balance of specific s_tokens in the dex owned by specific user
+    //balance of specific tokens in the dex owned by specific user
     function balanceOf(address _token, address _user)
         public
         view
@@ -421,24 +477,39 @@ contract Exchange is Ownable{
         return s_tokens[_token][_user];
     }
 
-    function updateBalance(address _token, address _user, uint256 _amount, bool isAdd) public {
+    function updateBalance(
+        address _token,
+        address _user,
+        uint256 _amount,
+        bool isAdd
+    ) public {
         if (isAdd) {
             s_tokens[_token][_user] = s_tokens[_token][_user].add(_amount);
-        } 
-        else if (!isAdd) {
+        } else if (!isAdd) {
             s_tokens[_token][_user] = s_tokens[_token][_user].sub(_amount);
         }
-    }   
+    }
 
     function addToken(address _token) public onlyOwner {
+        address[] memory tokens = tokenList;
+        bool isAdded = false;
+        //Cannot be repeated
+        for (uint256 i = 0; i < tokens.length; i++) {
+            if (tokens[i] == _token) {
+                isAdded = true;
+                break;
+            }
+        }
+        require(isAdded == false, "Token already verified on DEX!");
+
         tokenList.push(_token);
     }
 
-    function isVerifiedToken(address _token) internal view returns(bool) {
+    function isVerifiedToken(address _token) public view returns (bool) {
         uint256 size = tokenList.length;
 
-        for (uint i=0; i< size; i++) {
-            if (tokenList[i]==_token) return true;
+        for (uint256 i = 0; i < size; i++) {
+            if (tokenList[i] == _token) return true;
         }
         return false;
     }
