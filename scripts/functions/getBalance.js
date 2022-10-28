@@ -52,7 +52,7 @@ async function getBalance(_tokenName) {
 }
 
 async function main() {
-    await getBalance("USDC");
+    await getBalance("ETH");
 }
 
 main()

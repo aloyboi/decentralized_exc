@@ -2,11 +2,39 @@
 pragma solidity ^0.8.7;
 
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 // Why is this a library and not abstract?
 // Why not an interface?
-library PriceChecker {
+contract PriceChecker is Ownable {
     // We could make this public, but then we'd have to deploy it
+    _priceFeed[] public priceFeeds;
+
+    struct _priceFeed {
+        string name;
+        AggregatorV3Interface priceFeed;
+    }
+
+    function addPriceFeed(string memory _name, address _address)
+        external
+        onlyOwner
+    {
+        _priceFeed[] memory pricefeed = priceFeeds;
+        bool isAdded = false;
+        for (uint256 i = 0; i < pricefeed.length; i++) {
+            if (
+                keccak256(abi.encodePacked(_name)) ==
+                keccak256(abi.encodePacked(pricefeed[i].name))
+            ) {
+                isAdded = true;
+                break;
+            }
+        }
+        require(!isAdded, "Price Feed already added");
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(_address);
+        priceFeeds.push(_priceFeed(_name, priceFeed));
+    }
+
     function getPrice(AggregatorV3Interface priceFeed)
         internal
         view

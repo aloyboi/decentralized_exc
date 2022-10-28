@@ -11,7 +11,6 @@ async function withdrawToken(_tokenName, _amount) {
 
     //Token address to be taken from user input, for now use usdc token
     let tokenAddress;
-    let amount;
     let decimals = 18;
     let amountInDecimals;
     //Local Blockchain
@@ -20,8 +19,7 @@ async function withdrawToken(_tokenName, _amount) {
         const testUSDC = await deployments.get("testUSDC");
         tokenAddress = testUSDC.address;
 
-        amount = _amount;
-        amountInDecimals = ethers.utils.parseUnits(amount, decimals); //variable value
+        amountInDecimals = ethers.utils.parseUnits(_amount, decimals); //variable value
     }
     //Testnet
     else {
@@ -29,24 +27,22 @@ async function withdrawToken(_tokenName, _amount) {
         const chainId = network.config.chainId;
         tokenAddress = networkConfig[chainId][_tokenName][address];
 
-        //to make variable
-        amount = _amount;
         //decimals = networkConfig[chainId][_tokenName][decimal];
-        amountInDecimals = ethers.utils.parseUnits(amount, decimals);
+        amountInDecimals = ethers.utils.parseUnits(_amount, decimals);
     }
 
-    console.log(`Withdrawing ${amount} testUSDC`);
+    console.log(`Withdrawing ${_amount} ${_tokenName}`);
     const transactionResponse = await wallet.withdrawToken(
         tokenAddress, //to change
         amountInDecimals
     );
     await transactionResponse.wait();
-    console.log(`${amount} testUSDC withdrawn!`);
+    console.log(`${_amount} ${_tokenName} withdrawn!`);
 }
 
 async function main() {
     //to make variable
-    await withdrawToken("USDC", "10");
+    await withdrawToken("USDC", "29990.246946596922");
 }
 
 main()
