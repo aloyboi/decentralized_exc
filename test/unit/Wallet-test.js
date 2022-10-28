@@ -81,13 +81,13 @@ describe("Wallet", async function () {
             });
         });
 
-        describe("Depositing & Withdrawing testUSDC s_tokens", async function () {
+        describe("Depositing & Withdrawing testUSDC tokens", async function () {
             let amount;
             beforeEach(async function () {
                 amount = "10000000000000000000";
             });
 
-            it("Should deposit correct amount of testUSDC s_tokens into Exchange", async function () {
+            it("Should deposit correct amount of testUSDC tokens into Exchange", async function () {
                 const sendToken = await testUSDC.transfer(
                     addr1.address,
                     amount
@@ -113,7 +113,7 @@ describe("Wallet", async function () {
                 expect(tokenBalance).to.be.equal(amount);
             });
 
-            it("Should fail if sender does not have enough testUSDC s_tokens", async function () {
+            it("Should fail if sender does not have enough testUSDC tokens", async function () {
                 //Should fail even with approve
                 const approve = await testUSDC
                     .connect(addr1)
@@ -125,7 +125,7 @@ describe("Wallet", async function () {
                 ).to.be.revertedWith("ERC20: transfer amount exceeds balance");
             });
 
-            it("Should withdraw s_tokens if sender has enough balance in DEX", async function () {
+            it("Should withdraw tokens if sender has enough balance in DEX", async function () {
                 const sendToken = await testUSDC.transfer(
                     addr1.address,
                     amount

@@ -15,13 +15,16 @@ const { networkConfig, developmentChain } = require("../helper-hardhat-config");
 module.exports = async ({ getNamedAccounts, deployments }) => {
     const { deploy, log } = deployments; //contains several helpers function to deploy contract and also execute transaction
     const { deployer } = await getNamedAccounts(); //get from namedAccounts in config file
-    const chainId = network.config.chainId;
+    //const chainId = network.config.chainId;
 
-    //const args = [ethUsdPriceFeedAddress];
+    let exchangeAddress;
 
-    const dex = await deploy("Exchange", {
+    const Exchange = await deployments.get("Exchange");
+    exchangeAddress = Exchange.address;
+
+    const dex = await deploy("Wallet", {
         from: deployer,
-        args: [],
+        args: [exchangeAddress],
         log: true,
         waitConfirmations: network.config.blockConfirmations || 1,
     });
@@ -35,4 +38,4 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     log("------------------------------------------------");
 };
 
-module.exports.tags = ["all", "dex"];
+module.exports.tags = ["all", "wallet"];

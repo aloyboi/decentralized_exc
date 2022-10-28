@@ -25,11 +25,7 @@ contract Wallet is Ownable {
 
     IERC20 token;
 
-    event Deposit(
-        address token, 
-        address user, 
-        uint256 amount, 
-        uint256 balance);
+    event Deposit(address token, address user, uint256 amount, uint256 balance);
 
     /// @notice Event when amount withdrawn exchange
     event Withdraw(
@@ -45,10 +41,6 @@ contract Wallet is Ownable {
     }
 
     function depositETH() external payable {
-        
-        // s_tokens[ethToken][msg.sender] = s_tokens[ethToken][msg.sender].add(
-        //     msg.value
-        // );
         tokens.updateBalance(ethToken, msg.sender, msg.value, true);
 
         emit Deposit(
@@ -61,14 +53,13 @@ contract Wallet is Ownable {
 
     function withdrawETH(uint256 _amount) external {
         require(
-            tokens.balanceOf(ethToken, msg.sender) - tokens.getlockedFunds(msg.sender, ethToken) >= _amount,
+            tokens.balanceOf(ethToken, msg.sender) -
+                tokens.getlockedFunds(msg.sender, ethToken) >=
+                _amount,
             "Insufficient balance ETH to withdraw"
         );
         require(!locked, "Reentrant call detected!");
         locked = true;
-        // s_tokens[ethToken][msg.sender] = s_tokens[ethToken][msg.sender].sub(
-        //     _amount
-        // );
         tokens.updateBalance(ethToken, msg.sender, _amount, false);
         locked = false;
         (bool success, ) = msg.sender.call{value: _amount}("");
@@ -86,28 +77,50 @@ contract Wallet is Ownable {
     //_token should be an ERC20 token
     function depositToken(address _token, uint256 _amount) external {
         require(_token != ethToken);
+        require(
+            tokens.isVerifiedToken(_token),
+            "Token not verified on Exchange"
+        );
         //need to add a check to prove that it is an ERC20 token
         token = IERC20(_token);
 
         //Requires approval first
-        require(
-            token.transferFrom(msg.sender, address(this), _amount)
-        );
+        require(token.transferFrom(msg.sender, address(this), _amount));
         tokens.updateBalance(_token, msg.sender, _amount, true);
-        //s_tokens[_token][msg.sender] = s_tokens[_token][msg.sender].add(_amount);
-        emit Deposit(_token, msg.sender, _amount, tokens.balanceOf(_token, msg.sender));
+
+        emit Deposit(
+            _token,
+            msg.sender,
+            _amount,
+            tokens.balanceOf(_token, msg.sender)
+        );
     }
 
     function withdrawToken(address _token, uint256 _amount) external {
         require(_token != ethToken);
-        require(tokens.balanceOf(_token, msg.sender) - tokens.getlockedFunds(msg.sender, _token) >= _amount);
+        require(
+            tokens.isVerifiedToken(_token),
+            "Token not verified on Exchange"
+        );
+
+        require(
+            tokens.balanceOf(_token, msg.sender) -
+                tokens.getlockedFunds(msg.sender, _token) >=
+                _amount,
+            "Insufficient Tokens to withdraw"
+        );
         require(!locked, "Reentrant call detected!");
         locked = true;
-        //s_tokens[_token][msg.sender] = s_tokens[_token][msg.sender].sub(_amount);
+
         tokens.updateBalance(_token, msg.sender, _amount, false);
         token = IERC20(_token);
         require(token.transfer(msg.sender, _amount));
         locked = false;
-        emit Withdraw(_token, msg.sender, _amount, tokens.balanceOf(_token, msg.sender));
+        emit Withdraw(
+            _token,
+            msg.sender,
+            _amount,
+            tokens.balanceOf(_token, msg.sender)
+        );
     }
 }

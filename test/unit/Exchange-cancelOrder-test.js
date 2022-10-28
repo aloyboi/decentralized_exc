@@ -3,7 +3,7 @@ const { ethers } = require("hardhat");
 
 describe("Exchange", async function () {
     //Note that total supply only 10000
-    let totalSupply = "10000000000000000000000";
+    let totalSupply = "1000000000000000000000000";
     let Token;
     let testUSDC;
     let exchange;
@@ -19,7 +19,7 @@ describe("Exchange", async function () {
         amount = (10 * 10 ** 18).toString();
         price = "15";
         const decimals = 18;
-        const input = (10 * 15).toString(); // Note: this is a string, e.g. user input
+        const input = (amount * price).toString(); // Note: this is a string, e.g. user input
         totalAmount = ethers.utils.parseUnits(input, decimals);
 
         ethAdd = "0x0000000000000000000000000000000000000000";

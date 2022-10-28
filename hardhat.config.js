@@ -29,10 +29,10 @@ module.exports = {
             url: "http://127.0.0.1:8545/",
             //accounts not needed as already provided by hardhat
             chainId: 31337,
-            forking: {
-                enabled: true,
-                url: `https://eth-mainnet.alchemyapi.io/v2/${ALCHEMY_MAINNET_FORK}`,
-            },
+            // forking: {
+            //     enabled: true,
+            //     url: `https://eth-mainnet.alchemyapi.io/v2/${ALCHEMY_MAINNET_FORK}`,
+            // },
         },
     },
     solidity: {
@@ -48,8 +48,8 @@ module.exports = {
         deployer: {
             default: 0,
         },
-        users: {
-            default: 1,
+        user: {
+            default: 0,
         },
     },
     contractSizer: {

@@ -6,6 +6,7 @@
 //const { verify } = require("../utils/verify");
 const { network } = require("hardhat");
 const { networkConfig, developmentChain } = require("../helper-hardhat-config");
+require("dotenv").config();
 // const helperConfig = require("../helper-hardhat-config");
 // const networkConfig = helperConfig.networkConfig;
 
@@ -17,13 +18,23 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const { deployer } = await getNamedAccounts(); //get from namedAccounts in config file
     const chainId = network.config.chainId;
 
-    const tUSDC = await deploy("testUSDC", {
+    let usdcAddress;
+    //Local Blockchain
+    if (developmentChain.includes(network.name)) {
+        const testUSDC = await deployments.get("testUSDC");
+        usdcAddress = testUSDC.address;
+    }
+    //Testnet
+    else {
+        usdcAddress = networkConfig[chainId]["USDC"];
+    }
+
+    const dex = await deploy("Exchange", {
         from: deployer,
-        args: ["1000000000000000000000000"],
+        args: [usdcAddress],
         log: true,
         waitConfirmations: network.config.blockConfirmations || 1,
     });
-    console.log(`Contract Address: ${tUSDC.address}`);
 
     // if (
     //     !developmentChain.includes(network.name) &&
@@ -34,4 +45,4 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     log("------------------------------------------------");
 };
 
-module.exports.tags = ["testUSDC"];
+module.exports.tags = ["all", "dex"];
