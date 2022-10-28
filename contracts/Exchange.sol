@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.0;
-pragma experimental ABIEncoderV2;
 
 import "./ERC20.sol";
 import "./testUSDC.sol";
@@ -32,7 +31,7 @@ contract Exchange is Ownable {
     //Locked value in orders in DEX  user->Token->lockedAmount
     mapping(address => mapping(address => uint256)) public lockedFunds;
 
-    _filledOrder[] s_filledOrders; //array of filled orders
+    mapping(address => _Order[]) public s_filledOrders;
 
     uint256 public s_orderId = 0;
     bool private s_isManual = true;
@@ -45,11 +44,6 @@ contract Exchange is Ownable {
         uint256 amount;
         uint256 price; //in usdc
         Side side;
-    }
-
-    struct _filledOrder {
-        Side side;
-        _Order order;
     }
 
     enum Side {
@@ -238,7 +232,7 @@ contract Exchange is Ownable {
         emit Fill(_id, order.user, _token, _amount, _price);
 
         if (order.amount == 0) {
-            s_filledOrders.push(_filledOrder(side, order));
+            s_filledOrders[order.user].push(order);
             s_isManual = false;
             cancelOrder(side, order.id, order.token); //remove filled orders
             s_isManual = true;
@@ -408,9 +402,62 @@ contract Exchange is Ownable {
         }
     }
 
-    function getOrderBook(address _token) public view returns (_Order memory) {
-        _Order[] memory orderBuy = s_orderBook[_token][0];
-        return orderBuy[0];
+    function getOrderLength(Side side, address _token)
+        public
+        view
+        returns (uint256)
+    {
+        return s_orderBook[_token][uint256(side)].length;
+    }
+
+    function getOrder(
+        address _token,
+        uint256 index,
+        Side side
+    )
+        public
+        view
+        returns (
+            uint256,
+            uint256,
+            address,
+            uint256,
+            uint256
+        )
+    {
+        _Order memory order = s_orderBook[_token][uint256(side)][index];
+        return (
+            order.id,
+            order.amount,
+            order.user,
+            order.price,
+            uint256(order.side)
+        );
+    }
+
+    function getFilledOrderLength(address _user) public view returns (uint256) {
+        return s_filledOrders[_user].length;
+    }
+
+    function getFilledOrder(address _user, uint256 index)
+        public
+        view
+        returns (
+            uint256,
+            uint256,
+            address,
+            uint256,
+            uint256
+        )
+    {
+        _Order memory filledOrder = s_filledOrders[_user][index];
+        return (
+            filledOrder.id,
+            filledOrder.amount,
+            filledOrder.user,
+            filledOrder.price,
+            uint256(filledOrder.side)
+        );
     }
 
     function getOrderFromArray(_Order[] memory _order, uint256 _id)
@@ -428,20 +475,21 @@ contract Exchange is Ownable {
         return order;
     }
 
-    function orderExists(
-        uint256 _id,
-        Side side,
-        address _token
-    ) public view returns (bool) {
-        _Order[] memory orders = s_orderBook[_token][uint256(side)];
+    //Only for Unit Testing in Local Blockchain
+    // function orderExists(
+    //     uint256 _id,
+    //     Side side,
+    //     address _token
+    // ) public view returns (bool) {
+    //     _Order[] memory orders = s_orderBook[_token][uint256(side)];
 
-        for (uint256 i = 0; i < orders.length; i++) {
-            if (orders[i].id == _id) {
-                return true;
-            }
-        }
-        return false;
-    }
+    //     for (uint256 i = 0; i < orders.length; i++) {
+    //         if (orders[i].id == _id) {
+    //             return true;
+    //         }
+    //     }
+    //     return false;
+    // }
 
     function getlockedFunds(address _user, address _token)
         public
