@@ -15,12 +15,12 @@ describe("Exchange", async function () {
     let totalAmount;
 
     beforeEach(async function () {
-        // Get the ContractFactory and Signers here.
-        amount = (10 * 10 ** 18).toString();
-        price = "15";
         const decimals = 18;
-        const input = (amount * price).toString(); // Note: this is a string, e.g. user input
-        totalAmount = ethers.utils.parseUnits(input, decimals);
+        // Get the ContractFactory and Signers here.
+        amount = await ethers.utils.parseUnits("10", decimals);
+        price = await ethers.utils.parseUnits("15.12", decimals);
+
+        totalAmount = await ethers.utils.parseUnits("151.2", decimals);
 
         ethAdd = "0x0000000000000000000000000000000000000000";
 
@@ -53,9 +53,14 @@ describe("Exchange", async function () {
                 totalAmount
             );
 
+            const balance = await Exchange.balanceOf(
+                testUSDC.address,
+                owner.address
+            );
+
             expect(
                 await Exchange.s_tokens(testUSDC.address, owner.address)
-            ).to.be.equal(totalAmount);
+            ).to.be.equal(balance);
 
             //Place buy order for ETH
             const orderId = await Exchange.s_orderId();
@@ -70,7 +75,7 @@ describe("Exchange", async function () {
             );
             expect(
                 await Exchange.lockedFunds(owner.address, testUSDC.address)
-            ).to.be.equal((amount * price).toString());
+            ).to.be.equal(totalAmount);
 
             //Cancel buy order
             const cancelOrder = await Exchange.cancelOrder(0, orderId, ethAdd);

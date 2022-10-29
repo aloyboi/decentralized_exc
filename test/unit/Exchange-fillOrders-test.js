@@ -16,14 +16,14 @@ describe("Exchange", async function () {
     let price;
     let totalAmount;
     let ethAdd;
+    const decimals = 18;
 
     beforeEach(async function () {
         // Get the ContractFactory and Signers here.
-        amount = (10 * 10 ** 18).toString();
-        price = "15";
-        const decimals = 18;
-        const input = (10 * 15).toString(); // Note: this is a string, e.g. user input
-        totalAmount = ethers.utils.parseUnits(input, decimals);
+        amount = await ethers.utils.parseUnits("10", decimals);
+        price = await ethers.utils.parseUnits("15.12", decimals);
+
+        totalAmount = await ethers.utils.parseUnits("151.2", decimals);
 
         ethAdd = "0x0000000000000000000000000000000000000000";
 
@@ -64,7 +64,7 @@ describe("Exchange", async function () {
 
             expect(
                 await Exchange.lockedFunds(owner.address, testUSDC.address)
-            ).to.be.equal((amount * price).toString());
+            ).to.be.equal(totalAmount.toString());
 
             //Create a Sell Order
             const depositETH = await Wallet.connect(addr1).depositETH({
@@ -166,7 +166,7 @@ describe("Exchange", async function () {
 
             expect(
                 await Exchange.lockedFunds(owner.address, testUSDC.address)
-            ).to.be.equal((price * 5 * 10 ** 18).toString());
+            ).to.be.equal((price * 5).toString());
 
             expect(
                 await Exchange.orderExists(sellOrderId, 1, ethAdd)
@@ -174,13 +174,15 @@ describe("Exchange", async function () {
 
             //Balance should be updated
 
-            //Buyer
+            // //Buyer
             expect(await Exchange.s_tokens(ethAdd, owner.address)).to.be.equal(
                 sellAmount
             );
             expect(
                 await Exchange.s_tokens(testUSDC.address, owner.address)
-            ).to.be.equal((totalAmount - sellAmount * price).toString());
+            ).to.be.equal(
+                (totalAmount - (sellAmount * price) / 10 ** 18).toString()
+            );
 
             //Seller
             expect(await Exchange.s_tokens(ethAdd, addr1.address)).to.be.equal(
@@ -188,7 +190,7 @@ describe("Exchange", async function () {
             );
             expect(
                 await Exchange.s_tokens(testUSDC.address, addr1.address)
-            ).to.be.equal((sellAmount * price).toString());
+            ).to.be.equal(((sellAmount * price) / 10 ** 18).toString());
         });
 
         it("Should partially fill a Sell Order", async function () {
@@ -253,7 +255,9 @@ describe("Exchange", async function () {
             );
             expect(
                 await Exchange.s_tokens(testUSDC.address, owner.address)
-            ).to.be.equal((totalAmount - buyAmount * price).toString());
+            ).to.be.equal(
+                (totalAmount - (buyAmount * price) / 10 ** 18).toString()
+            );
 
             //Seller
             expect(await Exchange.s_tokens(ethAdd, addr1.address)).to.be.equal(
@@ -261,7 +265,7 @@ describe("Exchange", async function () {
             );
             expect(
                 await Exchange.s_tokens(testUSDC.address, addr1.address)
-            ).to.be.equal((buyAmount * price).toString());
+            ).to.be.equal(((buyAmount * price) / 10 ** 18).toString());
         });
 
         it("Should fill Sell Order if Price Target of Sell Order is met, takes SellPrice of whichever is higher", async function () {
@@ -293,7 +297,7 @@ describe("Exchange", async function () {
                 amount
             );
 
-            const sellPrice = "10";
+            const sellPrice = (10 * 10 ** 18).toString();
 
             const sellOrderId = await Exchange.s_orderId();
             const sellOrder = await Exchange.connect(
@@ -329,7 +333,9 @@ describe("Exchange", async function () {
             );
             expect(
                 await Exchange.s_tokens(testUSDC.address, owner.address)
-            ).to.be.equal((totalAmount - amount * price).toString());
+            ).to.be.equal(
+                (totalAmount - (amount * price) / 10 ** 18).toString()
+            );
 
             //Seller
             expect(await Exchange.s_tokens(ethAdd, addr1.address)).to.be.equal(
@@ -337,7 +343,7 @@ describe("Exchange", async function () {
             );
             expect(
                 await Exchange.s_tokens(testUSDC.address, addr1.address)
-            ).to.be.equal((amount * price).toString());
+            ).to.be.equal(((amount * price) / 10 ** 18).toString());
         });
 
         it("Should fill Buy Order if Price Target of Buy Order is met, takes buyPrice of whichever is higher", async function () {
@@ -369,7 +375,7 @@ describe("Exchange", async function () {
                 amount
             );
 
-            const sellPrice = "10";
+            const sellPrice = (10 * 10 ** 18).toString();
 
             const sellOrderId = await Exchange.s_orderId();
             const sellOrder = await Exchange.connect(
@@ -400,7 +406,9 @@ describe("Exchange", async function () {
             );
             expect(
                 await Exchange.s_tokens(testUSDC.address, owner.address)
-            ).to.be.equal((totalAmount - amount * sellPrice).toString());
+            ).to.be.equal(
+                (totalAmount - amount * (sellPrice / 10 ** 18)).toString()
+            );
 
             //Seller
             expect(await Exchange.s_tokens(ethAdd, addr1.address)).to.be.equal(
@@ -408,7 +416,7 @@ describe("Exchange", async function () {
             );
             expect(
                 await Exchange.s_tokens(testUSDC.address, addr1.address)
-            ).to.be.equal((amount * sellPrice).toString());
+            ).to.be.equal(((amount * sellPrice) / 10 ** 18).toString());
         });
 
         it("Should not fill Buy/Sell Order if Price Target of Order is not met", async function () {
@@ -440,7 +448,7 @@ describe("Exchange", async function () {
                 amount
             );
 
-            const sellPrice = "20";
+            const sellPrice = (20 * 10 ** 18).toString();
 
             const sellOrderId = await Exchange.s_orderId();
             const sellOrder = await Exchange.connect(
@@ -481,7 +489,7 @@ describe("Exchange", async function () {
             );
             expect(
                 await Exchange.s_tokens(testUSDC.address, addr1.address)
-            ).to.be.equal((0).toString());
+            ).to.be.equal(0);
         });
 
         it("Should fill multiple sell orders that match price target of buy order", async function () {
@@ -545,7 +553,7 @@ describe("Exchange", async function () {
 
             expect(
                 await Exchange.lockedFunds(owner.address, testUSDC.address)
-            ).to.be.equal((6 * 10 ** 18 * price).toString());
+            ).to.be.equal(((6 * 10 ** 18 * price) / 10 ** 18).toString());
             expect(
                 await Exchange.lockedFunds(addr1.address, ethAdd)
             ).to.be.equal(0);
@@ -559,7 +567,7 @@ describe("Exchange", async function () {
             );
             expect(
                 await Exchange.s_tokens(testUSDC.address, owner.address)
-            ).to.be.equal((totalAmount - 4 * 10 ** 18 * price).toString());
+            ).to.be.equal((totalAmount - 4 * price).toString());
 
             //Sellers
             expect(await Exchange.s_tokens(ethAdd, addr1.address)).to.be.equal(
@@ -567,14 +575,14 @@ describe("Exchange", async function () {
             );
             expect(
                 await Exchange.s_tokens(testUSDC.address, addr1.address)
-            ).to.be.equal((1 * 10 ** 18 * price).toString());
+            ).to.be.equal((1 * price).toString());
 
             expect(await Exchange.s_tokens(ethAdd, addr2.address)).to.be.equal(
                 (amount - 3 * 10 ** 18).toString()
             );
             expect(
                 await Exchange.s_tokens(testUSDC.address, addr2.address)
-            ).to.be.equal((3 * 10 ** 18 * price).toString());
+            ).to.be.equal((3 * price).toString());
         });
 
         it("Should fill multiple buy orders that match price target of sell order", async function () {
@@ -668,14 +676,14 @@ describe("Exchange", async function () {
             );
             expect(
                 await Exchange.s_tokens(testUSDC.address, owner.address)
-            ).to.be.equal((totalAmount - 2 * 10 ** 18 * price).toString());
+            ).to.be.equal((totalAmount - 2 * price).toString());
 
             expect(await Exchange.s_tokens(ethAdd, addr1.address)).to.be.equal(
                 (2 * 10 ** 18).toString()
             );
             expect(
                 await Exchange.s_tokens(testUSDC.address, addr1.address)
-            ).to.be.equal((totalAmount - 2 * 10 ** 18 * price).toString());
+            ).to.be.equal((totalAmount - 2 * price).toString());
 
             //Seller
             expect(await Exchange.s_tokens(ethAdd, addr2.address)).to.be.equal(
@@ -683,7 +691,7 @@ describe("Exchange", async function () {
             );
             expect(
                 await Exchange.s_tokens(testUSDC.address, addr2.address)
-            ).to.be.equal((4 * 10 ** 18 * price).toString());
+            ).to.be.equal((4 * price).toString());
         });
     });
 });

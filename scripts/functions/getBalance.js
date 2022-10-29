@@ -41,18 +41,14 @@ async function getBalance(_tokenName) {
     const lockedFunds = await exchange.lockedFunds(userAdd, tokenAddress);
 
     console.log(
-        `Balance ${_tokenName}: ${(
-            transactionResponse /
-            10 ** decimals
-        ).toString()}, Locked ${_tokenName}: ${(
-            lockedFunds /
-            10 ** decimals
-        ).toString()}`
+        `Balance ${_tokenName}: ${
+            transactionResponse /// 10 ** decimals.toString()
+        }, Locked ${_tokenName}: ${(lockedFunds / 10 ** decimals).toString()}`
     );
 }
 
 async function main() {
-    await getBalance("ETH");
+    await getBalance("USDC");
 }
 
 main()

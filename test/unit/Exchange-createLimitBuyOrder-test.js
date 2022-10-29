@@ -16,14 +16,14 @@ describe("Exchange", async function () {
     let price;
     let totalAmount;
     let ethAdd;
+    let decimals = 18;
 
     beforeEach(async function () {
         // Get the ContractFactory and Signers here.
-        amount = (10 * 10 ** 18).toString();
-        price = "15";
-        const decimals = 18;
-        const input = (10 * 15).toString(); // Note: this is a string, e.g. user input
-        totalAmount = ethers.utils.parseUnits(input, decimals);
+        amount = await ethers.utils.parseUnits("10", decimals);
+        price = await ethers.utils.parseUnits("15.12", decimals);
+
+        totalAmount = await ethers.utils.parseUnits("151.2", decimals);
 
         ethAdd = "0x0000000000000000000000000000000000000000";
 
@@ -71,7 +71,7 @@ describe("Exchange", async function () {
 
             expect(
                 await Exchange.lockedFunds(owner.address, testUSDC.address)
-            ).to.be.equal((amount * price).toString());
+            ).to.be.equal(totalAmount);
 
             await expect(newOrderId).to.be.equal(orderId + 1);
 

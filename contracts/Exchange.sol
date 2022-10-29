@@ -5,6 +5,7 @@ pragma solidity ^0.8.0;
 import "./ERC20.sol";
 import "./testUSDC.sol";
 import "./Wallet.sol";
+//import "./MathMul.sol";
 
 /// @notice Library SafeMath used to prevent overflows and underflows
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
@@ -13,6 +14,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Exchange is Ownable {
     using SafeMath for uint256; //for prevention of integer overflow
+    //using MathMul for uint256;
 
     address public immutable Owner;
     address usdc;
@@ -93,6 +95,7 @@ contract Exchange is Ownable {
         address _token,
         uint256 _amount,
         uint256 _price //in usdc/token
+
     ) external {
         //Token must be approved in DEX
         require(isVerifiedToken(_token), "Token unavailable in DEX");
@@ -102,9 +105,10 @@ contract Exchange is Ownable {
 
         uint256 totalValue = (_amount.mul(_price)).div(decimals);
 
+
         //Amount user has deposited in the DEX must be >= value he wants to buy
         require(
-            balanceOf(usdc, msg.sender) - getlockedFunds(msg.sender, usdc) >=
+            balanceOf(usdc, msg.sender).sub(getlockedFunds(msg.sender, usdc)) >=
                 totalValue,
             "Insufficient USDC"
         );
@@ -476,20 +480,20 @@ contract Exchange is Ownable {
     }
 
     //Only for Unit Testing in Local Blockchain
-    // function orderExists(
-    //     uint256 _id,
-    //     Side side,
-    //     address _token
-    // ) public view returns (bool) {
-    //     _Order[] memory orders = s_orderBook[_token][uint256(side)];
+    function orderExists(
+        uint256 _id,
+        Side side,
+        address _token
+    ) public view returns (bool) {
+        _Order[] memory orders = s_orderBook[_token][uint256(side)];
 
-    //     for (uint256 i = 0; i < orders.length; i++) {
-    //         if (orders[i].id == _id) {
-    //             return true;
-    //         }
-    //     }
-    //     return false;
-    // }
+        for (uint256 i = 0; i < orders.length; i++) {
+            if (orders[i].id == _id) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     function getlockedFunds(address _user, address _token)
         public

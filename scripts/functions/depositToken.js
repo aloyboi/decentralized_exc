@@ -45,17 +45,18 @@ async function depositToken(_tokenName, _amount) {
 
     await approveErc20(tokenAddress, wallet.address, amountInDecimals);
     console.log(`Depositing ${amount} ${_tokenName} into DEX`);
+
     const transactionResponse = await wallet.depositToken(
         tokenAddress,
         amountInDecimals
     );
     await transactionResponse.wait();
-    console.log(`${amount} ${_tokenName} Deposited!`);
+    console.log(`${amountInDecimals} ${_tokenName} Deposited!`);
 }
 
 async function main() {
     //variable value
-    await depositToken("USDC", "15000.123473298463");
+    await depositToken("USDC", (10 * 150.1234).toString());
 }
 
 main()

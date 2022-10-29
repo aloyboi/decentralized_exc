@@ -52,7 +52,7 @@ async function createLimitBuyOrder(_tokenName, _amount, _price) {
 }
 
 async function main() {
-    await createLimitBuyOrder("ETH", "5", "1500.2454");
+    await createLimitBuyOrder("ETH", "10", "150.1234");
 }
 
 main()

@@ -1,0 +1,44 @@
+{
+  "language": "Solidity",
+  "sources": {
+    "contracts/PriceChecker.sol": {
+      "content": "// SPDX-License-Identifier: MIT\r\npragma solidity ^0.8.7;\r\n\r\nimport \"@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol\";\r\nimport \"@openzeppelin/contracts/access/Ownable.sol\";\r\n\r\n// Why is this a library and not abstract?\r\n// Why not an interface?\r\ncontract PriceChecker is Ownable {\r\n    // We could make this public, but then we'd have to deploy it\r\n    _priceFeed[] public priceFeeds;\r\n\r\n    struct _priceFeed {\r\n        string name;\r\n        AggregatorV3Interface priceFeed;\r\n    }\r\n\r\n    function addPriceFeed(string memory _name, address _address)\r\n        external\r\n        onlyOwner\r\n    {\r\n        _priceFeed[] memory pricefeed = priceFeeds;\r\n        bool isAdded = false;\r\n        for (uint256 i = 0; i < pricefeed.length; i++) {\r\n            if (\r\n                keccak256(abi.encodePacked(_name)) ==\r\n                keccak256(abi.encodePacked(pricefeed[i].name))\r\n            ) {\r\n                isAdded = true;\r\n                break;\r\n            }\r\n        }\r\n        require(!isAdded, \"Price Feed already added\");\r\n        AggregatorV3Interface priceFeed = AggregatorV3Interface(_address);\r\n        priceFeeds.push(_priceFeed(_name, priceFeed));\r\n    }\r\n\r\n    function getPriceFeed(string memory _name) external view returns (AggregatorV3Interface priceFeed) {\r\n            _priceFeed[] memory pricefeed = priceFeeds;\r\n\r\n             for (uint256 i = 0; i < pricefeed.length; i++) {\r\n            if (\r\n                keccak256(abi.encodePacked(_name)) ==\r\n                keccak256(abi.encodePacked(pricefeed[i].name))\r\n            ) {\r\n                return pricefeed[i].priceFeed;\r\n            }\r\n        }\r\n\r\n    }\r\n\r\n    function getPrice(AggregatorV3Interface priceFeed)\r\n        external\r\n        view\r\n        returns (uint256)\r\n    {\r\n        // Goerli ETH / USD Address\r\n        // https://docs.chain.link/docs/ethereum-addresses/\r\n        // AggregatorV3Interface priceFeed = AggregatorV3Interface(\r\n        //     0xD4a33860578De61DBAbDc8BFdb98FD742fA7028e\r\n        // );\r\n        (, int256 answer, , , ) = priceFeed.latestRoundData();\r\n        // ETH/USD rate in 18 digit\r\n        return uint256(answer);\r\n        // or (Both will do the same thing)\r\n        // return uint256(answer * 1e10); // 1* 10 ** 10 == 10000000000\r\n    }\r\n\r\n\r\n}\r\n"
+    },
+    "@openzeppelin/contracts/access/Ownable.sol": {
+      "content": "// SPDX-License-Identifier: MIT\n// OpenZeppelin Contracts (last updated v4.7.0) (access/Ownable.sol)\n\npragma solidity ^0.8.0;\n\nimport \"../utils/Context.sol\";\n\n/**\n * @dev Contract module which provides a basic access control mechanism, where\n * there is an account (an owner) that can be granted exclusive access to\n * specific functions.\n *\n * By default, the owner account will be the one that deploys the contract. This\n * can later be changed with {transferOwnership}.\n *\n * This module is used through inheritance. It will make available the modifier\n * `onlyOwner`, which can be applied to your functions to restrict their use to\n * the owner.\n */\nabstract contract Ownable is Context {\n    address private _owner;\n\n    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);\n\n    /**\n     * @dev Initializes the contract setting the deployer as the initial owner.\n     */\n    constructor() {\n        _transferOwnership(_msgSender());\n    }\n\n    /**\n     * @dev Throws if called by any account other than the owner.\n     */\n    modifier onlyOwner() {\n        _checkOwner();\n        _;\n    }\n\n    /**\n     * @dev Returns the address of the current owner.\n     */\n    function owner() public view virtual returns (address) {\n        return _owner;\n    }\n\n    /**\n     * @dev Throws if the sender is not the owner.\n     */\n    function _checkOwner() internal view virtual {\n        require(owner() == _msgSender(), \"Ownable: caller is not the owner\");\n    }\n\n    /**\n     * @dev Leaves the contract without owner. It will not be possible to call\n     * `onlyOwner` functions anymore. Can only be called by the current owner.\n     *\n     * NOTE: Renouncing ownership will leave the contract without an owner,\n     * thereby removing any functionality that is only available to the owner.\n     */\n    function renounceOwnership() public virtual onlyOwner {\n        _transferOwnership(address(0));\n    }\n\n    /**\n     * @dev Transfers ownership of the contract to a new account (`newOwner`).\n     * Can only be called by the current owner.\n     */\n    function transferOwnership(address newOwner) public virtual onlyOwner {\n        require(newOwner != address(0), \"Ownable: new owner is the zero address\");\n        _transferOwnership(newOwner);\n    }\n\n    /**\n     * @dev Transfers ownership of the contract to a new account (`newOwner`).\n     * Internal function without access restriction.\n     */\n    function _transferOwnership(address newOwner) internal virtual {\n        address oldOwner = _owner;\n        _owner = newOwner;\n        emit OwnershipTransferred(oldOwner, newOwner);\n    }\n}\n"
+    },
+    "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol": {
+      "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.0;\n\ninterface AggregatorV3Interface {\n  function decimals() external view returns (uint8);\n\n  function description() external view returns (string memory);\n\n  function version() external view returns (uint256);\n\n  function getRoundData(uint80 _roundId)\n    external\n    view\n    returns (\n      uint80 roundId,\n      int256 answer,\n      uint256 startedAt,\n      uint256 updatedAt,\n      uint80 answeredInRound\n    );\n\n  function latestRoundData()\n    external\n    view\n    returns (\n      uint80 roundId,\n      int256 answer,\n      uint256 startedAt,\n      uint256 updatedAt,\n      uint80 answeredInRound\n    );\n}\n"
+    },
+    "@openzeppelin/contracts/utils/Context.sol": {
+      "content": "// SPDX-License-Identifier: MIT\n// OpenZeppelin Contracts v4.4.1 (utils/Context.sol)\n\npragma solidity ^0.8.0;\n\n/**\n * @dev Provides information about the current execution context, including the\n * sender of the transaction and its data. While these are generally available\n * via msg.sender and msg.data, they should not be accessed in such a direct\n * manner, since when dealing with meta-transactions the account sending and\n * paying for execution may not be the actual sender (as far as an application\n * is concerned).\n *\n * This contract is only required for intermediate, library-like contracts.\n */\nabstract contract Context {\n    function _msgSender() internal view virtual returns (address) {\n        return msg.sender;\n    }\n\n    function _msgData() internal view virtual returns (bytes calldata) {\n        return msg.data;\n    }\n}\n"
+    }
+  },
+  "settings": {
+    "optimizer": {
+      "enabled": false,
+      "runs": 200
+    },
+    "outputSelection": {
+      "*": {
+        "*": [
+          "abi",
+          "evm.bytecode",
+          "evm.deployedBytecode",
+          "evm.methodIdentifiers",
+          "metadata",
+          "devdoc",
+          "userdoc",
+          "storageLayout",
+          "evm.gasEstimates"
+        ],
+        "": [
+          "ast"
+        ]
+      }
+    },
+    "metadata": {
+      "useLiteralContent": true
+    }
+  }
+}

@@ -35,8 +35,22 @@ contract PriceChecker is Ownable {
         priceFeeds.push(_priceFeed(_name, priceFeed));
     }
 
+    function getPriceFeed(string memory _name) external view returns (AggregatorV3Interface priceFeed) {
+            _priceFeed[] memory pricefeed = priceFeeds;
+
+             for (uint256 i = 0; i < pricefeed.length; i++) {
+            if (
+                keccak256(abi.encodePacked(_name)) ==
+                keccak256(abi.encodePacked(pricefeed[i].name))
+            ) {
+                return pricefeed[i].priceFeed;
+            }
+        }
+
+    }
+
     function getPrice(AggregatorV3Interface priceFeed)
-        internal
+        external
         view
         returns (uint256)
     {
@@ -47,21 +61,10 @@ contract PriceChecker is Ownable {
         // );
         (, int256 answer, , , ) = priceFeed.latestRoundData();
         // ETH/USD rate in 18 digit
-        return uint256(answer * 10000000000);
+        return uint256(answer);
         // or (Both will do the same thing)
         // return uint256(answer * 1e10); // 1* 10 ** 10 == 10000000000
     }
 
-    // 1000000000
-    function getConversionRate(
-        uint256 _ethAmount,
-        AggregatorV3Interface priceFeed
-    ) internal view returns (uint256) {
-        uint256 ethPrice = getPrice(priceFeed);
-        uint256 ethAmountInUsd = (ethPrice * _ethAmount) / 1000000000000000000;
-        // or (Both will do the same thing)
-        // uint256 ethAmountInUsd = (ethPrice * ethAmount) / 1e18; // 1 * 10 ** 18 == 1000000000000000000
-        // the actual ETH/USD conversion rate, after adjusting the extra 0s.
-        return ethAmountInUsd;
-    }
+
 }
